@@ -8,7 +8,6 @@ const els = {
   pageTitle: $("page-title"),
   translateBtn: $<HTMLButtonElement>("translate"),
   settingsBtn: $<HTMLButtonElement>("settings"),
-  hint: $("hint"),
   status: $("status"),
   output: $("output"),
 };
@@ -57,7 +56,6 @@ function render() {
   const showButton = supported && !checking;
 
   els.translateBtn.hidden = !showButton;
-  els.hint.hidden = !showButton;
   els.translateBtn.disabled = !!busy;
   els.translateBtn.textContent = translation ? "Dịch lại" : "Dịch trang này";
   els.output.hidden = !translation;
@@ -95,6 +93,7 @@ async function loadActiveTab() {
     : (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
   if (gen !== generation) return;
   els.pageTitle.textContent = tab?.title ?? "";
+  els.pageTitle.title = tab?.title ?? "";
 
   if (!tab?.id || !tab.url || !isTranslatable(tab.url)) {
     currentTab = undefined;
@@ -223,7 +222,7 @@ els.settingsBtn.addEventListener("click", () => chrome.runtime.openOptionsPage()
 
 chrome.tabs.onUpdated.addListener((tabId, info) => {
   if (tabId !== activeTabId) return;
-  if (info.title) els.pageTitle.textContent = info.title;
+  if (info.title) els.pageTitle.textContent = els.pageTitle.title = info.title;
   // Chỉ tải lại khi sang trang khác (bỏ qua đổi ?query / #hash).
   if (!info.url || (currentTab && pageKey(info.url) === pageKey(currentTab.url))) return;
   loadActiveTab();
