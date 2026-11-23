@@ -17,11 +17,20 @@ Cấu hình trong `web/.env` (hoặc biến môi trường, được ưu tiên h
 API_URL=http://localhost:3000   # bắt buộc khi build; watch mặc định http://localhost:3000
 ```
 
-## Deploy (Vercel, project riêng)
+## Deploy (Vercel, project `website-translator-web`)
 
-- Root Directory: `web`, bật "Include files outside the root directory" (mặc định đã bật) vì build cần `../shared/`.
-- Biến môi trường: `API_URL`.
-- Deploy bằng CLI thì chạy `vercel` ở **gốc repo** (không phải trong `web/`) để `shared/` được upload.
+Build trên máy rồi upload bản build (`--prebuilt`): build cần `../shared/`, và cách này không phải upload cả repo
+(tránh lộ `api/.env`).
+
+```bash
+cd web
+npx vercel link --project website-translator-web   # lần đầu
+API_URL=https://project-wu5g5.vercel.app npx vercel build --prod
+npx vercel deploy --prebuilt --prod
+```
+
+- Web: https://project-hh860-eight.vercel.app
+- API: https://project-wu5g5.vercel.app
 
 ## Cài trên Android
 
