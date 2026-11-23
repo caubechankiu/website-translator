@@ -30,7 +30,11 @@ const inFlight = new Map<string, Promise<Translation>>();
 let generation = 0;
 
 const isTranslatable = (url: string) => /^https?:\/\//.test(url);
-const stripHash = (url: string) => url.split("#")[0]!;
+/** Khoá của trang: chỉ tính đến path, bỏ ?query và #hash (giống API). */
+const pageKey = (url: string) => {
+  const u = new URL(url);
+  return u.origin + u.pathname;
+};
 
 function setState(patch: Partial<State>) {
   state = { ...state, ...patch };
@@ -108,7 +112,7 @@ async function loadActiveTab() {
     if (gen === generation) setState({ checking: false, error: (err as Error).message });
   }
 
-  const pending = inFlight.get(stripHash(tab.url));
+  const pending = inFlight.get(pageKey(tab.url));
   if (pending && gen === generation) {
     setState({ busy: "Đang dịch… (có thể mất vài phút)" });
     track(pending, gen);
@@ -156,7 +160,7 @@ function looksLikeMarkdown(text: string): boolean {
 async function startTranslation() {
   if (!currentTab) return;
   const { url } = currentTab;
-  const key = stripHash(url);
+  const key = pageKey(url);
   if (inFlight.has(key)) return;
 
   let content: string;
@@ -191,8 +195,8 @@ chrome.tabs.onActivated.addListener(() => loadActiveTab());
 chrome.tabs.onUpdated.addListener((tabId, info) => {
   if (tabId !== activeTabId) return;
   if (info.title) els.pageTitle.textContent = info.title;
-  // Chỉ tải lại khi URL đổi thật sự (bỏ qua đổi #hash).
-  if (!info.url || (currentTab && stripHash(info.url) === stripHash(currentTab.url))) return;
+  // Chỉ tải lại khi sang trang khác (bỏ qua đổi ?query / #hash).
+  if (!info.url || (currentTab && pageKey(info.url) === pageKey(currentTab.url))) return;
   loadActiveTab();
 });
 chrome.storage.onChanged.addListener(() => loadActiveTab());

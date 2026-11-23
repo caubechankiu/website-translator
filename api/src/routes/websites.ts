@@ -5,9 +5,10 @@ import { translateToVietnamese } from "../translator.js";
 
 export const websitesRouter = Router();
 
-/** Bỏ phần #hash để cùng 1 trang không bị lưu nhiều bản. */
+/** Chỉ tính đến path (bỏ ?query và #hash) để cùng 1 trang không bị lưu nhiều bản. */
 function normalizeUrl(raw: string): string {
   const u = new URL(raw);
+  u.search = "";
   u.hash = "";
   return u.toString();
 }
