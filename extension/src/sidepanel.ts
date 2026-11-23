@@ -23,7 +23,8 @@ type State = {
 };
 
 let state: State = { supported: false, checking: true };
-let activeTabId: number | undefined;
+/** Panel gắn cố định với tab đã mở nó (truyền qua ?tabId=). */
+const activeTabId = Number(new URLSearchParams(location.search).get("tabId")) || undefined;
 let currentTab: { id: number; url: string; title: string } | undefined;
 /** Bản dịch đang chạy theo URL — giữ lại khi người dùng chuyển tab rồi quay lại. */
 const inFlight = new Map<string, Promise<Translation>>();
@@ -89,9 +90,10 @@ async function track(job: Promise<Translation>, gen: number) {
 
 async function loadActiveTab() {
   const gen = ++generation;
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tab = activeTabId
+    ? await chrome.tabs.get(activeTabId).catch(() => undefined)
+    : (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
   if (gen !== generation) return;
-  activeTabId = tab?.id;
   els.pageTitle.textContent = tab?.title ?? "";
 
   if (!tab?.id || !tab.url || !isTranslatable(tab.url)) {
@@ -219,7 +221,6 @@ async function startTranslation() {
 els.translateBtn.addEventListener("click", startTranslation);
 els.settingsBtn.addEventListener("click", () => chrome.runtime.openOptionsPage());
 
-chrome.tabs.onActivated.addListener(() => loadActiveTab());
 chrome.tabs.onUpdated.addListener((tabId, info) => {
   if (tabId !== activeTabId) return;
   if (info.title) els.pageTitle.textContent = info.title;
