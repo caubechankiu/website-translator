@@ -2,7 +2,7 @@ import DOMPurify from "dompurify";
 import hljs from "highlight.js/lib/common";
 import { marked } from "marked";
 import { getSavedTranslation, translate, type Translation } from "./api";
-import { copyMarkdownFromPage } from "./pageCopy";
+import { copyMarkdownFromPage, extractMarkdownFromDom } from "./pageCopy";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const els = {
@@ -27,7 +27,18 @@ let state: State = { supported: false, checking: true };
 const activeTabId = Number(new URLSearchParams(location.search).get("tabId")) || undefined;
 let currentTab: { id: number; url: string; title: string } | undefined;
 /** Bản dịch đang chạy theo URL — giữ lại khi người dùng chuyển tab rồi quay lại. */
-const inFlight = new Map<string, Promise<Translation>>();
+const inFlight = new Map<string, { job: Promise<Translation>; source: string }>();
+
+/** Tên hiển thị của adapter chuyển HTML -> Markdown (xem src/extract/adapters.ts). */
+const ADAPTER_LABELS: Record<string, string> = {
+  starlight: "Starlight (Astro)",
+  docusaurus: "Docusaurus",
+  vitepress: "VitePress",
+  "mkdocs-material": "MkDocs Material",
+  generic: "generic",
+};
+
+const translatingMessage = (source: string) => `Đang dịch… (có thể mất vài phút)\nNguồn Markdown: ${source}`;
 /** Tăng mỗi lần đổi tab, để bỏ qua kết quả cũ trả về muộn. */
 let generation = 0;
 
@@ -144,8 +155,8 @@ async function loadActiveTab() {
 
   const pending = inFlight.get(pageKey(tab.url));
   if (pending && gen === generation) {
-    setState({ busy: "Đang dịch… (có thể mất vài phút)" });
-    track(pending, gen);
+    setState({ busy: translatingMessage(pending.source) });
+    track(pending.job, gen);
   }
 }
 
@@ -253,33 +264,50 @@ async function startTranslation() {
   const update = (patch: Partial<State>) => gen === generation && setState(patch);
 
   setState({ busy: "Đang lấy nội dung trang…", error: undefined });
-  // Ưu tiên tự bấm nút "Copy page" / "Copy Markdown" của trang; không được thì đọc clipboard.
-  let content = (await hostAccess) ? await copyMarkdownFromPage(tabId) : undefined;
+  const canAccessPage = await hostAccess;
+  // 1. Tự bấm nút "Copy page" / "Copy Markdown" của trang.
+  let content = canAccessPage ? await copyMarkdownFromPage(tabId) : undefined;
   if (content && !looksLikeMarkdown(content)) content = undefined;
+  let source = "nút Copy của trang";
+
+  // 2. Clipboard — sau mỗi lần dịch clipboard đã bị xoá, nên còn Markdown nghĩa là người dùng vừa tự copy.
+  let clipboardError: string | undefined;
   if (!content) {
     try {
-      content = await readClipboard();
+      const clip = await readClipboard();
+      if (clip && looksLikeMarkdown(clip)) {
+        content = clip;
+        source = "clipboard";
+        void clearClipboard();
+      }
     } catch (err) {
-      return void update({ busy: undefined, error: (err as Error).message });
+      clipboardError = (err as Error).message;
     }
   }
-  if (!content) {
-    return void update({ busy: undefined, error: "Clipboard trống — hãy copy nội dung Markdown của trang rồi bấm lại." });
+
+  // 3. Tự chuyển HTML của trang sang Markdown theo framework (Starlight, Docusaurus…).
+  if (!content && canAccessPage) {
+    const extracted = await extractMarkdownFromDom(tabId);
+    if (extracted) {
+      content = extracted.markdown;
+      source = `chuyển từ HTML — adapter ${ADAPTER_LABELS[extracted.adapter] ?? extracted.adapter}`;
+    }
   }
-  if (!looksLikeMarkdown(content)) {
+
+  if (!content) {
     return void update({
       busy: undefined,
-      error: "Nội dung trong clipboard không phải Markdown — hãy copy nội dung Markdown của trang rồi bấm lại.",
+      error:
+        clipboardError ??
+        "Không lấy được nội dung trang — hãy copy nội dung Markdown của trang rồi bấm lại.",
     });
   }
 
-  void clearClipboard();
-
   const job = translate(url, content, force);
-  inFlight.set(key, job);
+  inFlight.set(key, { job, source });
   job.finally(() => inFlight.delete(key)).catch(() => {});
 
-  update({ busy: "Đang dịch… (có thể mất vài phút)", error: undefined });
+  update({ busy: translatingMessage(source), error: undefined });
   await track(job, gen);
 }
 

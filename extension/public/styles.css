@@ -50,7 +50,7 @@ button.icon { padding: 0 6px; background: transparent; border-color: transparent
 
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
-.status { margin: 4px 0 0; font-size: 12px; line-height: 1.4; color: var(--muted); }
+.status { margin: 4px 0 0; font-size: 12px; line-height: 1.4; color: var(--muted); white-space: pre-line; }
 .status:empty { display: none; }
 .status.error { color: var(--danger); }
 .status.done { color: var(--ok); }

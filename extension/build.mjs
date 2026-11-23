@@ -7,7 +7,7 @@ await rm("dist", { recursive: true, force: true });
 await cp("public", "dist", { recursive: true });
 
 const ctx = await esbuild.context({
-  entryPoints: ["src/background.ts", "src/sidepanel.ts", "src/options.ts"],
+  entryPoints: ["src/background.ts", "src/sidepanel.ts", "src/options.ts", { in: "src/extract/index.ts", out: "extract" }],
   outdir: "dist",
   bundle: true,
   format: "iife",

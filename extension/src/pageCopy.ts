@@ -103,3 +103,24 @@ async function grabFromCopyButton(timeoutMs: number): Promise<string | null> {
     Document.prototype.execCommand = origExec;
   }
 }
+
+/**
+ * Trang không có nút copy: tự chuyển HTML trong vùng nội dung sang Markdown
+ * (adapter cho Starlight, Docusaurus, VitePress, MkDocs Material, còn lại dùng generic).
+ */
+export async function extractMarkdownFromDom(tabId: number): Promise<{ markdown: string; adapter: string } | undefined> {
+  try {
+    await chrome.scripting.executeScript({ target: { tabId }, files: ["extract.js"] });
+    const [result] = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () =>
+        (globalThis as { __websiteTranslatorExtract?: () => unknown }).__websiteTranslatorExtract?.() ?? null,
+    });
+    const value = result?.result as { markdown?: unknown; adapter?: unknown } | null | undefined;
+    if (typeof value?.markdown !== "string" || !value.markdown.trim()) return undefined;
+    return { markdown: value.markdown.trim(), adapter: String(value.adapter) };
+  } catch (err) {
+    console.warn("[extractMarkdownFromDom]", err);
+    return undefined;
+  }
+}
