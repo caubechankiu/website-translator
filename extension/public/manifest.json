@@ -29,7 +29,8 @@
     "sidePanel",
     "tabs",
     "clipboardRead",
-    "clipboardWrite"
+    "clipboardWrite",
+    "scripting"
   ],
   "optional_host_permissions": [
     "http://*/*",

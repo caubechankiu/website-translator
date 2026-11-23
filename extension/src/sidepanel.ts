@@ -1,6 +1,7 @@
 import DOMPurify from "dompurify";
 import { marked } from "marked";
 import { getSavedTranslation, translate, type Translation } from "./api";
+import { copyMarkdownFromPage } from "./pageCopy";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const els = {
@@ -168,35 +169,51 @@ function looksLikeMarkdown(text: string): boolean {
 
 async function startTranslation() {
   if (!currentTab) return;
-  const { url } = currentTab;
+  const { id: tabId, url } = currentTab;
   const key = pageKey(url);
   if (inFlight.has(key)) return;
 
-  let content: string;
-  try {
-    content = await readClipboard();
-  } catch (err) {
-    return setState({ error: (err as Error).message });
+  // Phải gọi ngay trong lúc bấm nút (trước mọi await) thì Chrome mới cho hỏi quyền.
+  // Đã cấp rồi thì trả về true luôn, không hỏi lại.
+  const hostAccess = chrome.permissions
+    .request({ origins: ["http://*/*", "https://*/*"] })
+    .catch(() => false);
+
+  const gen = generation;
+  // "Dịch lại" luôn gọi Claude, kể cả khi nội dung trùng bản đã lưu.
+  const force = !!state.translation;
+  /** Chỉ cập nhật giao diện nếu người dùng vẫn ở trang này. */
+  const update = (patch: Partial<State>) => gen === generation && setState(patch);
+
+  setState({ busy: "Đang lấy nội dung trang…", error: undefined });
+  // Ưu tiên tự bấm nút "Copy page" / "Copy Markdown" của trang; không được thì đọc clipboard.
+  let content = (await hostAccess) ? await copyMarkdownFromPage(tabId) : undefined;
+  if (content && !looksLikeMarkdown(content)) content = undefined;
+  if (!content) {
+    try {
+      content = await readClipboard();
+    } catch (err) {
+      return void update({ busy: undefined, error: (err as Error).message });
+    }
   }
   if (!content) {
-    return setState({ error: "Clipboard trống — hãy copy nội dung Markdown của trang rồi bấm lại." });
+    return void update({ busy: undefined, error: "Clipboard trống — hãy copy nội dung Markdown của trang rồi bấm lại." });
   }
   if (!looksLikeMarkdown(content)) {
-    return setState({
+    return void update({
+      busy: undefined,
       error: "Nội dung trong clipboard không phải Markdown — hãy copy nội dung Markdown của trang rồi bấm lại.",
     });
   }
 
   void clearClipboard();
 
-  // "Dịch lại" luôn gọi Claude, kể cả khi nội dung trùng bản đã lưu.
-  const force = !!state.translation;
   const job = translate(url, content, force);
   inFlight.set(key, job);
   job.finally(() => inFlight.delete(key)).catch(() => {});
 
-  setState({ busy: "Đang dịch… (có thể mất vài phút)", error: undefined });
-  await track(job, generation);
+  update({ busy: "Đang dịch… (có thể mất vài phút)", error: undefined });
+  await track(job, gen);
 }
 
 els.translateBtn.addEventListener("click", startTranslation);
