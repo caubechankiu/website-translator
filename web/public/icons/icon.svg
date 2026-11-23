@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3b82f6"/>
+      <stop offset="1" stop-color="#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="ink" gradientUnits="userSpaceOnUse" x1="60" y1="60" x2="104" y2="100">
+      <stop offset="0" stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#7c3aed"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Nền -->
+  <rect width="128" height="128" rx="28" fill="url(#bg)"/>
+
+  <!-- Bong bóng sau: chữ A (bản gốc) -->
+  <path d="M28 16h40a12 12 0 0 1 12 12v28a12 12 0 0 1-12 12H38l-12 10v-10.6A12 12 0 0 1 16 56V28a12 12 0 0 1 12-12z"
+        fill="#fff" fill-opacity=".28"/>
+  <path d="M27 46 39.5 21 52 46M31.5 37h16" fill="none" stroke="#fff" stroke-width="6.5"
+        stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Bong bóng trước: chữ Vi (bản dịch) -->
+  <path d="M60 50h44a12 12 0 0 1 12 12v30a12 12 0 0 1-10 11.8V114l-12-10H60a12 12 0 0 1-12-12V62a12 12 0 0 1 12-12z"
+        fill="#fff"/>
+  <path d="M63 64l10.5 28L84 64" fill="none" stroke="url(#ink)" stroke-width="7.5"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M97 75v17" fill="none" stroke="url(#ink)" stroke-width="7.5" stroke-linecap="round"/>
+  <circle cx="97" cy="64.5" r="4.6" fill="#7c3aed"/>
+</svg>

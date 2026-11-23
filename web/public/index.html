@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#3b82f6" />
+    <title>Website Translator</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <link rel="stylesheet" href="/theme.css" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header>
+      <div class="title-row">
+        <div class="page-info">
+          <h1 id="page-title" class="page-title">Website Translator</h1>
+          <a id="page-link" class="page-link" target="_blank" rel="noopener noreferrer" hidden></a>
+        </div>
+        <button id="settings" class="icon" title="Cài đặt" aria-label="Cài đặt">⚙</button>
+      </div>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </header>
+
+    <!-- Nhập SECRET (lần đầu, hoặc khi bị 401) -->
+    <form id="secret-form" class="card" hidden>
+      <label>
+        SECRET
+        <input id="secret-input" type="password" autocomplete="current-password" required />
+        <small>Giống SECRET trong cài đặt extension. Chỉ lưu trên máy này.</small>
+      </label>
+      <button class="primary" type="submit">Lưu</button>
+    </form>
+
+    <!-- Mở app trực tiếp (không qua Chia sẻ) -->
+    <form id="url-form" class="card" hidden>
+      <p class="hint">
+        Đang xem trang trên Chrome → ⋮ → <b>Chia sẻ</b> → <b>Dịch trang</b>.<br />
+        Hoặc dán link vào đây:
+      </p>
+      <label>
+        URL
+        <input id="url-input" type="url" inputmode="url" placeholder="https://…" required />
+      </label>
+      <button class="primary" type="submit">Xem bản dịch</button>
+    </form>
+
+    <main id="output" class="markdown" hidden></main>
+    <script src="/app.js"></script>
+  </body>
+</html>

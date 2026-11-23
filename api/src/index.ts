@@ -11,6 +11,18 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
 
+// CORS mở cho mọi origin để web (PWA) ở domain khác gọi được. An toàn vì API xác thực bằng
+// header Authorization (không dùng cookie) — không có SECRET thì origin nào cũng bị 401.
+// Đặt trước requireSecret: preflight OPTIONS không mang header Authorization.
+const cors: RequestHandler = (req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST");
+  res.setHeader("Access-Control-Max-Age", "86400");
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+};
+
 // Xác thực bằng header: Authorization: Bearer <SECRET>
 const requireSecret: RequestHandler = (req, res, next) => {
   const token = req.header("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
@@ -22,7 +34,7 @@ const requireSecret: RequestHandler = (req, res, next) => {
   next();
 };
 
-app.use("/api", requireSecret, websitesRouter);
+app.use("/api", cors, requireSecret, websitesRouter);
 
 const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   console.error(err);

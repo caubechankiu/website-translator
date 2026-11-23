@@ -7,7 +7,13 @@
     "types": ["chrome"],
     "strict": true,
     "noEmit": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    // ../shared không có node_modules riêng — lấy type của thư viện từ node_modules của package này.
+    "paths": {
+      "marked": ["./node_modules/marked"],
+      "dompurify": ["./node_modules/dompurify"],
+      "highlight.js/*": ["./node_modules/highlight.js/*"]
+    }
   },
-  "include": ["src"]
+  "include": ["src", "../shared"]
 }
