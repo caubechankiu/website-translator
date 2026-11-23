@@ -37,6 +37,7 @@
     <form id="url-form" class="card" hidden>
       <p class="hint">
         Đang xem trang trên Chrome → ⋮ → <b>Chia sẻ</b> → <b>Dịch trang</b>.<br />
+        Vuốt ngang giữa màn hình để mở <b>Lịch sử</b>.<br />
         Hoặc dán link vào đây:
       </p>
       <label>
@@ -45,6 +46,16 @@
       </label>
       <button class="primary" type="submit">Xem bản dịch</button>
     </form>
+
+    <!-- Lịch sử các trang đã xem, nhóm theo domain -->
+    <section id="history-view" class="history" hidden>
+      <div class="history-head">
+        <h2>Lịch sử</h2>
+        <button id="history-clear" class="small" type="button">Xoá tất cả</button>
+      </div>
+      <p id="history-empty" class="hint">Chưa xem trang nào.</p>
+      <div id="history-list"></div>
+    </section>
 
     <main id="output" class="markdown" hidden></main>
     <script src="/app.js"></script>
