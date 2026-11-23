@@ -129,13 +129,51 @@ async function readClipboard(): Promise<string> {
   }
 }
 
-/** Xoá clipboard sau khi đã lấy nội dung; lỗi thì bỏ qua, không chặn việc dịch. */
-async function clearClipboard(): Promise<void> {
+/** Ghi đè clipboard qua sự kiện "copy" — dùng khi writeText("") bị Chrome bỏ qua. */
+function overwriteViaCopyEvent(text: string) {
+  const onCopy = (e: ClipboardEvent) => {
+    e.clipboardData?.setData("text/plain", text);
+    e.preventDefault();
+  };
+  document.addEventListener("copy", onCopy, { once: true });
   try {
-    await navigator.clipboard.writeText("");
-  } catch {
-    /* không xoá được thì thôi */
+    document.execCommand("copy");
+  } finally {
+    document.removeEventListener("copy", onCopy);
   }
+}
+
+async function isClipboardCleared(): Promise<boolean> {
+  try {
+    return !(await navigator.clipboard.readText()).trim();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Xoá clipboard sau khi đã lấy nội dung; không chặn việc dịch.
+ * Chrome chỉ cho ghi clipboard khi panel đang có focus, nên nếu mất focus thì đợi focus lại.
+ */
+async function clearClipboard(): Promise<void> {
+  if (!document.hasFocus()) {
+    await new Promise((r) => window.addEventListener("focus", r, { once: true }));
+  }
+  const attempts: Array<() => unknown> = [
+    () => navigator.clipboard.writeText(""),
+    () => overwriteViaCopyEvent(""),
+    // Phương án cuối: không xoá trống được thì ít nhất ghi đè nội dung cũ.
+    () => navigator.clipboard.writeText(" "),
+  ];
+  for (const attempt of attempts) {
+    try {
+      await attempt();
+    } catch (err) {
+      console.warn("[clearClipboard]", err);
+    }
+    if (await isClipboardCleared()) return;
+  }
+  console.warn("[clearClipboard] Không xoá được clipboard.");
 }
 
 /** Cú pháp Markdown thường gặp; chỉ cần khớp một mẫu là coi như Markdown. */
