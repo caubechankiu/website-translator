@@ -23,8 +23,15 @@ export async function copyMarkdownFromPage(tabId: number): Promise<string | unde
 /** Chạy trong trang (MAIN world) — phải tự chứa đủ, không dùng biến bên ngoài. */
 async function grabFromCopyButton(timeoutMs: number): Promise<string | null> {
   const LABEL = /^copy\s+(page(\s+as\s+markdown)?|(as\s+)?markdown|for\s+llms?)$/i;
+  // Nút có thể gồm nhiều span (vd. "Copy as Markdown" / "Copied" / "Failed" + text sr-only),
+  // textContent bị dính liền nhau nên xét thêm text của từng phần tử con.
   const labelOf = (el: Element) =>
-    [el.textContent, el.getAttribute("aria-label"), el.getAttribute("title")]
+    [
+      el.getAttribute("aria-label"),
+      el.getAttribute("title"),
+      el.textContent,
+      ...[...el.querySelectorAll("*")].map((child) => child.textContent),
+    ]
       .map((s) => (s ?? "").replace(/\s+/g, " ").trim())
       .find((s) => LABEL.test(s));
   const isVisible = (el: Element) => (el as HTMLElement).getClientRects().length > 0;
