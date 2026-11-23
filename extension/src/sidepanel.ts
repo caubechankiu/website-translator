@@ -127,6 +127,15 @@ async function readClipboard(): Promise<string> {
   }
 }
 
+/** Xoá clipboard sau khi đã lấy nội dung; lỗi thì bỏ qua, không chặn việc dịch. */
+async function clearClipboard(): Promise<void> {
+  try {
+    await navigator.clipboard.writeText("");
+  } catch {
+    /* không xoá được thì thôi */
+  }
+}
+
 /** Cú pháp Markdown thường gặp; chỉ cần khớp một mẫu là coi như Markdown. */
 const MARKDOWN_PATTERNS = [
   /^#{1,6}\s+\S/m, // tiêu đề
@@ -177,6 +186,8 @@ async function startTranslation() {
       error: "Nội dung trong clipboard không phải Markdown — hãy copy nội dung Markdown của trang rồi bấm lại.",
     });
   }
+
+  void clearClipboard();
 
   // "Dịch lại" luôn gọi Claude, kể cả khi nội dung trùng bản đã lưu.
   const force = !!state.translation;
