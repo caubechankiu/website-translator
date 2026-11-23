@@ -1,5 +1,18 @@
+import { createRequire } from "node:module";
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { config } from "./config.js";
+
+// Trên Vercel: SDK tìm binary Claude Code qua tên package ghép động nên Vercel
+// không tự đóng gói. Chỉ đường dẫn tường minh (kèm includeFiles trong vercel.json),
+// và cho Claude Code ghi config vào /tmp vì thư mục home chỉ đọc.
+let claudeExecutable: string | undefined;
+if (process.env.VERCEL) {
+  process.env.HOME = "/tmp";
+  process.env.CLAUDE_CONFIG_DIR = "/tmp/.claude";
+  claudeExecutable = createRequire(import.meta.url).resolve(
+    "@anthropic-ai/claude-agent-sdk-linux-x64/claude",
+  );
+}
 
 const SYSTEM_PROMPT = `Bạn là biên dịch viên chuyên nghiệp. Người dùng gửi nội dung một trang web dưới dạng Markdown; hãy dịch sang tiếng Việt và trả về Markdown.
 
@@ -31,6 +44,7 @@ export async function translateToVietnamese(url: string, content: string): Promi
       maxTurns: 1,
       settingSources: [], // không đọc settings/CLAUDE.md trên máy chủ
       persistSession: false,
+      pathToClaudeCodeExecutable: claudeExecutable,
     },
   });
 

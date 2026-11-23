@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "express",
+  "functions": {
+    "src/index.ts": {
+      "maxDuration": 300,
+      "includeFiles": "node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/**"
+    }
+  }
+}
