@@ -1,4 +1,5 @@
 import DOMPurify from "dompurify";
+import hljs from "highlight.js/lib/common";
 import { marked } from "marked";
 import { getSavedTranslation, translate, type Translation } from "./api";
 import { copyMarkdownFromPage } from "./pageCopy";
@@ -42,10 +43,37 @@ function setState(patch: Partial<State>) {
   render();
 }
 
-function renderMarkdown(markdown: string) {
+/** Đổi đường dẫn tương đối thành tuyệt đối theo URL trang gốc (không thì sẽ trỏ về chrome-extension://). */
+function absolutize(el: Element, attr: string, baseUrl: string) {
+  const value = el.getAttribute(attr);
+  if (!value) return;
+  try {
+    el.setAttribute(attr, new URL(value, baseUrl).href);
+  } catch {
+    /* URL không hợp lệ thì giữ nguyên */
+  }
+}
+
+/**
+ * Tô màu code block theo class "language-xxx" do marked sinh ra.
+ * Không ghi ngôn ngữ (hoặc ngôn ngữ lạ) thì để highlight.js tự đoán.
+ * highlight.js đọc textContent nên không mở lại lỗ hổng XSS sau DOMPurify.
+ */
+function highlightCode() {
+  for (const code of els.output.querySelectorAll<HTMLElement>("pre code")) {
+    const lang = /\blanguage-(\S+)/.exec(code.className)?.[1];
+    if (lang && !hljs.getLanguage(lang)) code.classList.remove(`language-${lang}`);
+    hljs.highlightElement(code);
+  }
+}
+
+function renderMarkdown(markdown: string, baseUrl: string) {
   els.output.innerHTML = DOMPurify.sanitize(marked.parse(markdown, { async: false }));
+  for (const img of els.output.querySelectorAll("img")) absolutize(img, "src", baseUrl);
+  highlightCode();
   // Link trong bản dịch mở ở tab mới thay vì điều hướng side panel.
   for (const a of els.output.querySelectorAll("a")) {
+    absolutize(a, "href", baseUrl);
     a.target = "_blank";
     a.rel = "noopener noreferrer";
   }
@@ -78,7 +106,7 @@ async function track(job: Promise<Translation>, gen: number) {
   try {
     const translation = await job;
     if (gen !== generation) return;
-    renderMarkdown(translation.translatedContent);
+    renderMarkdown(translation.translatedContent, currentTab?.url ?? location.href);
     els.output.scrollTop = 0;
     setState({ translation, busy: undefined, error: undefined });
   } catch (err) {
@@ -107,7 +135,7 @@ async function loadActiveTab() {
   try {
     const saved = await getSavedTranslation(tab.url);
     if (gen !== generation) return;
-    if (saved) renderMarkdown(saved.translatedContent);
+    if (saved) renderMarkdown(saved.translatedContent, tab.url);
     els.output.scrollTop = 0;
     setState({ checking: false, translation: saved });
   } catch (err) {
