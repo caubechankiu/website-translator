@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cài đặt · Website Translator</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="options">
+    <h1>Cài đặt Website Translator</h1>
+    <form id="form">
+      <label>
+        API URL
+        <input id="apiUrl" type="url" required placeholder="https://your-api.vercel.app" />
+      </label>
+      <label>
+        SECRET
+        <input id="secret" type="password" required autocomplete="off" />
+        <small>Giá trị biến môi trường <code>SECRET</code> của API.</small>
+      </label>
+      <div class="actions">
+        <button type="submit" class="primary">Lưu</button>
+        <button type="button" id="test">Kiểm tra kết nối</button>
+      </div>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </form>
+    <script src="options.js"></script>
+  </body>
+</html>

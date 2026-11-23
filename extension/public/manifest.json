@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Website Translator",
+  "description": "Dịch nội dung trang web sang tiếng Việt bằng Claude.",
+  "version": "1.0.0",
+  "minimum_chrome_version": "116",
+  "action": {
+    "default_title": "Dịch trang này"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "options_page": "options.html",
+  "permissions": [
+    "storage",
+    "sidePanel",
+    "tabs",
+    "clipboardRead"
+  ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ]
+}
