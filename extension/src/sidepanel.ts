@@ -1,4 +1,4 @@
-import { renderMarkdown as renderInto } from "../../shared/render";
+import { renderMarkdown as renderInto, scrollToAnchor } from "../../shared/render";
 import { getSavedTranslation, translate, type Translation } from "./api";
 import {
   copyMarkdownFromPage,
@@ -58,7 +58,33 @@ function setState(patch: Partial<State>) {
 }
 
 function renderTranslation(translation: Translation, baseUrl: string) {
-  renderInto(els.output, translation.translatedContent, baseUrl, translation.anchors);
+  renderInto(els.output, translation.translatedContent, baseUrl, {
+    anchors: translation.anchors,
+    onNavigate: openInTab,
+    onAnchor: scrollTabToAnchor,
+  });
+}
+
+/**
+ * Bấm link "#…" trong bản dịch: cuộn luôn trang gốc trong tab tới mục đó.
+ * Id tiêu đề trong bản dịch lấy từ trang gốc nên trỏ cùng một chỗ. Chỉ đổi #hash của URL
+ * (trình duyệt tự cuộn, không tải lại trang) nên không cần quyền truy cập trang.
+ */
+function scrollTabToAnchor(hash: string) {
+  if (!currentTab) return;
+  const url = new URL(currentTab.url);
+  url.hash = hash;
+  chrome.tabs.update(currentTab.id, { url: url.href }).catch((err) => console.warn("[scrollTabToAnchor]", err));
+}
+
+/**
+ * Bấm link tới trang khác cùng site: chuyển tab đang gắn panel sang trang đó.
+ * Panel tự tải bản dịch khi tab đổi trang (chrome.tabs.onUpdated), nên trang gốc và bản dịch luôn khớp nhau.
+ */
+function openInTab(url: string) {
+  const tabId = activeTabId ?? currentTab?.id;
+  if (tabId === undefined) return void window.open(url, "_blank", "noopener");
+  chrome.tabs.update(tabId, { url }).catch((err) => setState({ error: (err as Error).message }));
 }
 
 function render() {
@@ -120,6 +146,8 @@ async function loadActiveTab() {
     if (saved) renderTranslation(saved, tab.url);
     els.output.scrollTop = 0;
     setState({ checking: false, translation: saved });
+    // URL có #hash (vd. bấm link "/docs/cli#openspec-init" từ trang trước) thì cuộn tới mục đó.
+    if (saved) scrollToAnchor(els.output, new URL(tab.url).hash, "auto");
   } catch (err) {
     if (gen === generation) setState({ checking: false, error: (err as Error).message });
   }

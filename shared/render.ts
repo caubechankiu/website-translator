@@ -168,38 +168,87 @@ function samePageHash(href: string, baseUrl: string): string | undefined {
   }
 }
 
-/** Container đã gắn sự kiện click cho link nội bộ (mỗi container chỉ gắn một lần). */
-const boundContainers = new WeakSet<HTMLElement>();
+/** Link tới file (pdf, zip, ảnh…) thay vì trang — vẫn mở trang gốc. */
+const FILE_EXT = /\.(?!html?$|mdx?$|php$|aspx?$)[a-z0-9]{1,5}$/i;
 
-/** Bấm link "#…": cuộn tới phần tử trong bản dịch (vùng cuộn gần nhất — side panel hay cả trang web). */
-function bindInPageLinks(container: HTMLElement) {
-  if (boundContainers.has(container)) return;
-  boundContainers.add(container);
-  container.addEventListener("click", (e) => {
-    const link = (e.target as Element).closest<HTMLAnchorElement>("a[data-in-page]");
-    if (!link || !container.contains(link)) return;
-    e.preventDefault();
-    const raw = link.getAttribute("href")!.slice(1);
-    if (!raw) return container.scrollIntoView({ behavior: "smooth", block: "start" });
-    let id = raw;
-    try {
-      id = decodeURIComponent(raw);
-    } catch {
-      /* giữ nguyên */
-    }
-    const escaped = CSS.escape(id);
-    const target = container.querySelector(`[id="${escaped}"], a[name="${escaped}"]`);
-    if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
-    // Không có trong bản dịch (vd. anchor do JS của trang gốc tạo) thì mở trang gốc.
-    else window.open(new URL(`#${raw}`, container.dataset.baseUrl).href, "_blank", "noopener");
-  });
+/** Link tới trang khác cùng origin với trang gốc (có thể đã được dịch). */
+function isSameSitePage(href: string, baseUrl: string): boolean {
+  try {
+    const target = new URL(href);
+    const base = new URL(baseUrl);
+    return /^https?:$/.test(target.protocol) && target.origin === base.origin && !FILE_EXT.test(target.pathname);
+  } catch {
+    return false;
+  }
 }
 
 /**
- * Render Markdown đã sanitize vào `container`; link và ảnh tương đối tính theo `baseUrl` (trang gốc).
- * `anchors`: anchor tiêu đề của bản gốc, để link "#…" cuộn đúng tiêu đề đã dịch.
+ * Cuộn tới phần tử có id = `hash` ("#…" hoặc không có "#") trong bản dịch,
+ * trong vùng cuộn gần nhất (side panel hay cả trang web). Trả về false nếu không tìm thấy.
  */
-export function renderMarkdown(container: HTMLElement, markdown: string, baseUrl: string, anchors?: Anchor[]) {
+export function scrollToAnchor(container: HTMLElement, hash: string, behavior: ScrollBehavior = "smooth"): boolean {
+  const raw = hash.replace(/^#/, "");
+  if (!raw) return false;
+  let id = raw;
+  try {
+    id = decodeURIComponent(raw);
+  } catch {
+    /* giữ nguyên */
+  }
+  const escaped = CSS.escape(id);
+  const target = container.querySelector(`[id="${escaped}"], a[name="${escaped}"]`);
+  target?.scrollIntoView({ behavior, block: "start" });
+  return !!target;
+}
+
+/** Callback xử lý link của từng container (cập nhật mỗi lần render). */
+const handlers = new WeakMap<HTMLElement, Pick<RenderOptions, "onNavigate" | "onAnchor">>();
+
+/** Gắn sự kiện click cho link nội bộ (mỗi container chỉ gắn một lần). */
+function bindLinks(container: HTMLElement) {
+  if (handlers.has(container)) return;
+  container.addEventListener("click", (e) => {
+    const link = (e.target as Element).closest<HTMLAnchorElement>("a[data-in-page], a[data-same-site]");
+    if (!link || !container.contains(link)) return;
+
+    if (link.dataset.inPage !== undefined) {
+      e.preventDefault();
+      const hash = link.getAttribute("href")!;
+      const onAnchor = handlers.get(container)?.onAnchor;
+      onAnchor?.(hash);
+      if (hash === "#") return container.scrollIntoView({ behavior: "smooth", block: "start" });
+      // Không có trong bản dịch (vd. anchor do JS của trang gốc tạo) thì mở trang gốc —
+      // trừ khi đã có onAnchor (extension: trang gốc đang mở cạnh bên, đã được cuộn tới đó).
+      if (!scrollToAnchor(container, hash) && !onAnchor) {
+        window.open(new URL(hash, container.dataset.baseUrl).href, "_blank", "noopener");
+      }
+      return;
+    }
+
+    // Trang khác cùng site: mở bản dịch. Ctrl/⌘/Shift/chuột giữa thì để trình duyệt mở trang gốc ở tab mới.
+    const navigate = handlers.get(container)?.onNavigate;
+    if (!navigate || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    navigate(link.href);
+  });
+}
+
+export type RenderOptions = {
+  /** Anchor tiêu đề của bản gốc, để link "#…" cuộn đúng tiêu đề đã dịch. */
+  anchors?: Anchor[];
+  /** Bấm link tới trang khác cùng site: mở bản dịch của trang đó. Không truyền thì mở trang gốc ở tab mới. */
+  onNavigate?: (url: string) => void;
+  /** Bấm link "#…" trong bản dịch (ngoài việc cuộn bản dịch), vd. để cuộn cả trang gốc tới mục đó. */
+  onAnchor?: (hash: string) => void;
+};
+
+/** Render Markdown đã sanitize vào `container`; link và ảnh tương đối tính theo `baseUrl` (trang gốc). */
+export function renderMarkdown(
+  container: HTMLElement,
+  markdown: string,
+  baseUrl: string,
+  { anchors, onNavigate, onAnchor }: RenderOptions = {},
+) {
   container.innerHTML = DOMPurify.sanitize(marked.parse(markdown, { async: false }));
   container.dataset.baseUrl = baseUrl;
   for (const img of container.querySelectorAll("img")) absolutize(img, "src", baseUrl);
@@ -216,10 +265,12 @@ export function renderMarkdown(container: HTMLElement, markdown: string, baseUrl
       a.dataset.inPage = "";
       continue;
     }
-    // Link khác trỏ về trang gốc, mở ở tab mới.
+    // Link khác trỏ về trang gốc (href tuyệt đối), mặc định mở ở tab mới.
     absolutize(a, "href", baseUrl);
     a.target = "_blank";
     a.rel = "noopener noreferrer";
+    if (onNavigate && isSameSitePage(a.href, baseUrl)) a.dataset.sameSite = "";
   }
-  bindInPageLinks(container);
+  bindLinks(container);
+  handlers.set(container, { onNavigate, onAnchor });
 }

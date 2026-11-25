@@ -3,7 +3,7 @@
  * Trang chưa dịch thì chỉ báo, không dịch (việc dịch làm bằng extension trên máy tính).
  * API ở domain khác (API_URL lúc build); API bật CORS cho mọi origin.
  */
-import { renderMarkdown, type Anchor } from "../../shared/render";
+import { renderMarkdown, scrollToAnchor, type Anchor } from "../../shared/render";
 
 declare const __API_URL__: string;
 
@@ -211,12 +211,23 @@ async function load(url: string, title?: string) {
   if (!res.ok) return setStatus(body.error ?? `Lỗi HTTP ${res.status}`, "error");
 
   const translation = body as Translation;
-  renderMarkdown(els.output, translation.translatedContent, url, translation.anchors);
+  renderMarkdown(els.output, translation.translatedContent, url, {
+    anchors: translation.anchors,
+    onNavigate: openPage,
+  });
   // Lưu theo URL đã chuẩn hoá của API (bỏ ?query/#hash) để cùng một trang không bị lặp.
   history_.add(translation.url, title);
   show("output");
   window.scrollTo(0, 0);
+  // URL có #hash (vd. bấm link "/docs/cli#openspec-init" từ trang trước) thì cuộn tới mục đó.
+  scrollToAnchor(els.output, new URL(url).hash, "auto");
   setStatus(`Dịch lúc ${new Date(translation.translatedAt).toLocaleString("vi-VN")}`);
+}
+
+/** Bấm link tới trang khác cùng site trong bản dịch: mở bản dịch của trang đó ngay trong app (Back để quay lại). */
+function openPage(url: string) {
+  history.pushState(null, "", pageHref(url));
+  route();
 }
 
 /** Trang đang xem, lấy từ query (?url= do Chia sẻ hoặc do chính app ghi lại). */
