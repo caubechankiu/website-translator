@@ -1,6 +1,11 @@
 import { renderMarkdown as renderInto } from "../../shared/render";
 import { getSavedTranslation, translate, type Translation } from "./api";
-import { copyMarkdownFromPage, extractMarkdownFromDom } from "./pageCopy";
+import {
+  copyMarkdownFromPage,
+  extractMarkdownFromDom,
+  GITHUB_COPY_RAW_BUTTON,
+  isGithubMarkdownFile,
+} from "./pageCopy";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const els = {
@@ -231,10 +236,19 @@ async function startTranslation() {
 
   setState({ busy: "Đang lấy nội dung trang…", error: undefined });
   const canAccessPage = await hostAccess;
-  // 1. Tự bấm nút "Copy page" / "Copy Markdown" của trang.
-  let content = canAccessPage ? await copyMarkdownFromPage(tabId) : undefined;
-  if (content && !looksLikeMarkdown(content)) content = undefined;
+  let content: string | undefined;
   let source = "nút Copy của trang";
+  // 0. File Markdown trên github.com: bấm nút "Copy raw file" để lấy nguyên văn file .md
+  //    (không kiểm tra looksLikeMarkdown — file .md có thể chỉ là văn bản thuần).
+  if (canAccessPage && isGithubMarkdownFile(url)) {
+    content = await copyMarkdownFromPage(tabId, GITHUB_COPY_RAW_BUTTON);
+    if (content) source = "nút Copy raw file của GitHub";
+  }
+  // 1. Tự bấm nút "Copy page" / "Copy Markdown" của trang.
+  if (!content && canAccessPage) {
+    content = await copyMarkdownFromPage(tabId);
+    if (content && !looksLikeMarkdown(content)) content = undefined;
+  }
 
   // 2. Clipboard — sau mỗi lần dịch clipboard đã bị xoá, nên còn Markdown nghĩa là người dùng vừa tự copy.
   let clipboardError: string | undefined;
