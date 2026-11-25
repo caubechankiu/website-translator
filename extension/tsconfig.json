@@ -13,7 +13,8 @@
       "marked": ["./node_modules/marked"],
       "dompurify": ["./node_modules/dompurify"],
       "highlight.js/*": ["./node_modules/highlight.js/*"],
-      "mermaid": ["./node_modules/mermaid"]
+      "mermaid": ["./node_modules/mermaid"],
+      "github-slugger": ["./node_modules/github-slugger"]
     }
   },
   "include": ["src", "../shared"]

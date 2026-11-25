@@ -1,9 +1,12 @@
+import type { Anchor } from "../../shared/render";
 import { getSettings } from "./settings";
 
 export type Translation = {
   url: string;
   translatedContent: string;
   translatedAt: string;
+  /** Anchor tiêu đề của bản gốc (API cũ chưa có). */
+  anchors?: Anchor[];
   cached: boolean;
 };
 

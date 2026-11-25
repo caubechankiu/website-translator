@@ -86,6 +86,8 @@ button.icon { font-size: 20px; padding: 4px 8px; }
 
 .markdown { padding: 16px 16px calc(32px + env(safe-area-inset-bottom)); max-width: 820px; margin: 0 auto; }
 .markdown code { font-size: 13.5px; }
+/* Cuộn tới tiêu đề (link "#…") không bị header sticky che mất */
+.markdown [id] { scroll-margin-top: 80px; }
 
 /* Lịch sử */
 .history { max-width: 820px; margin: 0 auto; padding: 16px 16px calc(32px + env(safe-area-inset-bottom)); }

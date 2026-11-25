@@ -4,6 +4,7 @@
  * (esbuild `nodePaths` + tsconfig `paths`), nên package nào import file này phải tự cài các thư viện đó.
  */
 import DOMPurify from "dompurify";
+import GithubSlugger from "github-slugger";
 import hljs from "highlight.js/lib/common";
 import { marked } from "marked";
 
@@ -128,17 +129,97 @@ async function renderMermaid(container: HTMLElement) {
   }
 }
 
-/** Render Markdown đã sanitize vào `container`; link và ảnh tương đối tính theo `baseUrl` (trang gốc). */
-export function renderMarkdown(container: HTMLElement, markdown: string, baseUrl: string) {
+/** Anchor tiêu đề của bản gốc (API trả về): cấp và id dùng trong link "#…". */
+export type Anchor = { depth: number; id: string };
+
+/** Id tự đặt ở cuối tiêu đề: `## Tiêu đề {#custom-id}` (Docusaurus, kramdown) hoặc `## Tiêu đề [#custom-id]` (Fumadocs). */
+const CUSTOM_ID = /\s*(?:\{#([^}\s]+)\}|\[#([^\]\s]+)\])\s*$/;
+const customId = (m: RegExpExecArray | null) => m?.[1] ?? m?.[2];
+
+/**
+ * Gán id cho các tiêu đề để link "#…" cuộn tới được.
+ * Bản dịch giữ nguyên cấu trúc nên tiêu đề thứ i ứng với anchor thứ i của bản gốc
+ * (link vẫn là "#getting-started" dù tiêu đề đã thành "Bắt đầu"). Nếu số tiêu đề hoặc cấp
+ * không khớp thì tạo slug từ chính tiêu đề đã dịch.
+ */
+function assignHeadingIds(container: HTMLElement, anchors: Anchor[] = []) {
+  const headings = [...container.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6")];
+  const matches =
+    anchors.length === headings.length && headings.every((h, i) => Number(h.tagName[1]) === anchors[i]!.depth);
+  const slugger = new GithubSlugger();
+  headings.forEach((h, i) => {
+    // Bỏ "{#id}" / "[#id]" khỏi chữ hiển thị (nằm ở text node cuối cùng của tiêu đề).
+    const last = h.lastChild;
+    const custom = last?.nodeType === Node.TEXT_NODE ? CUSTOM_ID.exec(last.textContent ?? "") : null;
+    if (custom) last!.textContent = last!.textContent!.replace(CUSTOM_ID, "");
+    h.id = matches ? anchors[i]!.id : (customId(custom) ?? slugger.slug(h.textContent ?? ""));
+  });
+}
+
+/** Hash ("#…") nếu link trỏ tới chính trang gốc, ngược lại undefined. */
+function samePageHash(href: string, baseUrl: string): string | undefined {
+  if (href.startsWith("#")) return href;
+  try {
+    const target = new URL(href, baseUrl);
+    const base = new URL(baseUrl);
+    if (target.hash && target.origin === base.origin && target.pathname === base.pathname) return target.hash;
+  } catch {
+    /* URL không hợp lệ */
+  }
+}
+
+/** Container đã gắn sự kiện click cho link nội bộ (mỗi container chỉ gắn một lần). */
+const boundContainers = new WeakSet<HTMLElement>();
+
+/** Bấm link "#…": cuộn tới phần tử trong bản dịch (vùng cuộn gần nhất — side panel hay cả trang web). */
+function bindInPageLinks(container: HTMLElement) {
+  if (boundContainers.has(container)) return;
+  boundContainers.add(container);
+  container.addEventListener("click", (e) => {
+    const link = (e.target as Element).closest<HTMLAnchorElement>("a[data-in-page]");
+    if (!link || !container.contains(link)) return;
+    e.preventDefault();
+    const raw = link.getAttribute("href")!.slice(1);
+    if (!raw) return container.scrollIntoView({ behavior: "smooth", block: "start" });
+    let id = raw;
+    try {
+      id = decodeURIComponent(raw);
+    } catch {
+      /* giữ nguyên */
+    }
+    const escaped = CSS.escape(id);
+    const target = container.querySelector(`[id="${escaped}"], a[name="${escaped}"]`);
+    if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Không có trong bản dịch (vd. anchor do JS của trang gốc tạo) thì mở trang gốc.
+    else window.open(new URL(`#${raw}`, container.dataset.baseUrl).href, "_blank", "noopener");
+  });
+}
+
+/**
+ * Render Markdown đã sanitize vào `container`; link và ảnh tương đối tính theo `baseUrl` (trang gốc).
+ * `anchors`: anchor tiêu đề của bản gốc, để link "#…" cuộn đúng tiêu đề đã dịch.
+ */
+export function renderMarkdown(container: HTMLElement, markdown: string, baseUrl: string, anchors?: Anchor[]) {
   container.innerHTML = DOMPurify.sanitize(marked.parse(markdown, { async: false }));
+  container.dataset.baseUrl = baseUrl;
   for (const img of container.querySelectorAll("img")) absolutize(img, "src", baseUrl);
+  assignHeadingIds(container, anchors);
   highlightCode(container);
   addCopyButtons(container);
   void renderMermaid(container);
-  // Link trong bản dịch trỏ về trang gốc, mở ở tab mới.
   for (const a of container.querySelectorAll("a")) {
+    const href = a.getAttribute("href");
+    const hash = href && samePageHash(href, baseUrl);
+    if (hash) {
+      // Link tới một mục trong chính trang: cuộn trong bản dịch thay vì mở trang gốc.
+      a.setAttribute("href", hash);
+      a.dataset.inPage = "";
+      continue;
+    }
+    // Link khác trỏ về trang gốc, mở ở tab mới.
     absolutize(a, "href", baseUrl);
     a.target = "_blank";
     a.rel = "noopener noreferrer";
   }
+  bindInPageLinks(container);
 }

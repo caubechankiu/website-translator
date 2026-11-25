@@ -57,8 +57,8 @@ function setState(patch: Partial<State>) {
   render();
 }
 
-function renderMarkdown(markdown: string, baseUrl: string) {
-  renderInto(els.output, markdown, baseUrl);
+function renderTranslation(translation: Translation, baseUrl: string) {
+  renderInto(els.output, translation.translatedContent, baseUrl, translation.anchors);
 }
 
 function render() {
@@ -88,7 +88,7 @@ async function track(job: Promise<Translation>, gen: number) {
   try {
     const translation = await job;
     if (gen !== generation) return;
-    renderMarkdown(translation.translatedContent, currentTab?.url ?? location.href);
+    renderTranslation(translation, currentTab?.url ?? location.href);
     els.output.scrollTop = 0;
     setState({ translation, busy: undefined, error: undefined });
   } catch (err) {
@@ -117,7 +117,7 @@ async function loadActiveTab() {
   try {
     const saved = await getSavedTranslation(tab.url);
     if (gen !== generation) return;
-    if (saved) renderMarkdown(saved.translatedContent, tab.url);
+    if (saved) renderTranslation(saved, tab.url);
     els.output.scrollTop = 0;
     setState({ checking: false, translation: saved });
   } catch (err) {

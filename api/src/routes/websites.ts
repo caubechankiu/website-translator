@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import { headingAnchors } from "../anchors.js";
 import { findWebsiteByUrl, upsertWebsite, type Website } from "../db.js";
 import { translateToVietnamese } from "../translator.js";
 
@@ -26,6 +27,8 @@ const toResponse = (w: Website, cached: boolean) => ({
   url: w.url,
   translatedContent: w.translatedContent,
   translatedAt: w.translatedAt,
+  /** Anchor tiêu đề của bản gốc, để link "#…" trong bản dịch cuộn đúng chỗ. */
+  anchors: headingAnchors(w.originalContent),
   cached,
 });
 

@@ -3,11 +3,11 @@
  * Trang chưa dịch thì chỉ báo, không dịch (việc dịch làm bằng extension trên máy tính).
  * API ở domain khác (API_URL lúc build); API bật CORS cho mọi origin.
  */
-import { renderMarkdown } from "../../shared/render";
+import { renderMarkdown, type Anchor } from "../../shared/render";
 
 declare const __API_URL__: string;
 
-type Translation = { url: string; translatedContent: string; translatedAt: string };
+type Translation = { url: string; translatedContent: string; translatedAt: string; anchors?: Anchor[] };
 
 const SECRET_KEY = "secret";
 const HISTORY_KEY = "history";
@@ -211,7 +211,7 @@ async function load(url: string, title?: string) {
   if (!res.ok) return setStatus(body.error ?? `Lỗi HTTP ${res.status}`, "error");
 
   const translation = body as Translation;
-  renderMarkdown(els.output, translation.translatedContent, url);
+  renderMarkdown(els.output, translation.translatedContent, url, translation.anchors);
   // Lưu theo URL đã chuẩn hoá của API (bỏ ?query/#hash) để cùng một trang không bị lặp.
   history_.add(translation.url, title);
   show("output");
