@@ -11,7 +11,8 @@
     "paths": {
       "marked": ["./node_modules/marked"],
       "dompurify": ["./node_modules/dompurify"],
-      "highlight.js/*": ["./node_modules/highlight.js/*"]
+      "highlight.js/*": ["./node_modules/highlight.js/*"],
+      "mermaid": ["./node_modules/mermaid"]
     }
   },
   "include": ["src", "../shared"]

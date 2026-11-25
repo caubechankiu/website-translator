@@ -28,7 +28,10 @@ const ctx = await esbuild.context({
   // ../shared/*.ts không có node_modules riêng — resolve thư viện từ node_modules của web.
   nodePaths: [new URL("node_modules", import.meta.url).pathname],
   define: { __API_URL__: JSON.stringify(apiUrl) },
-  format: "iife",
+  // ESM + splitting để mermaid (nặng) tách thành chunk, chỉ tải khi bản dịch có sơ đồ.
+  format: "esm",
+  splitting: true,
+  chunkNames: "chunks/[name]-[hash]",
   target: ["chrome120", "safari16"],
   minify: !watch,
   sourcemap: watch ? "inline" : false,
