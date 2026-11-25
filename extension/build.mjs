@@ -22,7 +22,11 @@ const contexts = await Promise.all([
   // Service worker và script inject vào trang phải là 1 file IIFE.
   esbuild.context({
     ...common,
-    entryPoints: ["src/background.ts", { in: "src/extract/index.ts", out: "extract" }],
+    entryPoints: [
+      "src/background.ts",
+      { in: "src/extract/index.ts", out: "extract" },
+      { in: "src/scrollSync/page.ts", out: "scrollSync" },
+    ],
     format: "iife",
   }),
   // Trang của extension: ESM + splitting để mermaid (nặng) tách thành chunk, chỉ tải khi cần.

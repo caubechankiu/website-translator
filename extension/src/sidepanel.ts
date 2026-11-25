@@ -6,12 +6,14 @@ import {
   GITHUB_COPY_RAW_BUTTON,
   isGithubMarkdownFile,
 } from "./pageCopy";
+import { createScrollSync, toggleScrollSync, type SyncStatus } from "./scrollSync/panel";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const els = {
   pageTitle: $("page-title"),
   translateBtn: $<HTMLButtonElement>("translate"),
   settingsBtn: $<HTMLButtonElement>("settings"),
+  syncBtn: $<HTMLButtonElement>("sync"),
   status: $("status"),
   output: $("output"),
 };
@@ -63,6 +65,30 @@ function renderTranslation(translation: Translation, baseUrl: string) {
     onNavigate: openInTab,
     onAnchor: scrollTabToAnchor,
   });
+}
+
+/** Đồng bộ cuộn bản dịch với trang gốc theo tiêu đề (xem scrollSync/). */
+let syncStatus: SyncStatus = { kind: "idle" };
+const SYNC_TITLES: Record<SyncStatus["kind"], (n: number) => string> = {
+  off: () => "Đồng bộ cuộn: đang tắt — bấm để bật",
+  idle: () => "Đồng bộ cuộn với trang gốc theo tiêu đề",
+  "no-permission": () => "Đồng bộ cuộn: cần quyền truy cập trang — bấm để cấp quyền",
+  connecting: () => "Đồng bộ cuộn: đang kết nối với trang…",
+  unavailable: () => "Đồng bộ cuộn: không chạy được trên trang này",
+  few: (n) => `Đồng bộ cuộn: chỉ khớp ${n} tiêu đề với trang gốc, không đủ để đồng bộ`,
+  on: (n) => `Đồng bộ cuộn: đang bật (khớp ${n} tiêu đề) — bấm để tắt`,
+};
+const scrollSync = createScrollSync(els.output, (status) => {
+  syncStatus = status;
+  const count = "count" in status ? status.count : 0;
+  els.syncBtn.title = els.syncBtn.ariaLabel = SYNC_TITLES[status.kind](count);
+  els.syncBtn.dataset.state = status.kind;
+  els.syncBtn.setAttribute("aria-pressed", String(status.kind === "on"));
+});
+
+function startScrollSync() {
+  if (currentTab && state.translation) void scrollSync.start(currentTab.id);
+  else scrollSync.stop();
 }
 
 /**
@@ -117,6 +143,7 @@ async function track(job: Promise<Translation>, gen: number) {
     renderTranslation(translation, currentTab?.url ?? location.href);
     els.output.scrollTop = 0;
     setState({ translation, busy: undefined, error: undefined });
+    startScrollSync();
   } catch (err) {
     if (gen === generation) setState({ busy: undefined, error: (err as Error).message });
   }
@@ -134,11 +161,13 @@ async function loadActiveTab() {
   if (!tab?.id || !tab.url || !isTranslatable(tab.url)) {
     currentTab = undefined;
     state = { supported: false, checking: false };
+    scrollSync.stop();
     return render();
   }
   currentTab = { id: tab.id, url: tab.url, title: tab.title ?? tab.url };
   state = { supported: true, checking: true };
   render();
+  scrollSync.stop();
 
   try {
     const saved = await getSavedTranslation(tab.url);
@@ -148,6 +177,7 @@ async function loadActiveTab() {
     setState({ checking: false, translation: saved });
     // URL có #hash (vd. bấm link "/docs/cli#openspec-init" từ trang trước) thì cuộn tới mục đó.
     if (saved) scrollToAnchor(els.output, new URL(tab.url).hash, "auto");
+    startScrollSync();
   } catch (err) {
     if (gen === generation) setState({ checking: false, error: (err as Error).message });
   }
@@ -321,14 +351,23 @@ async function startTranslation() {
 
 els.translateBtn.addEventListener("click", startTranslation);
 els.settingsBtn.addEventListener("click", () => chrome.runtime.openOptionsPage());
+// Không await trước toggleScrollSync: xin quyền phải nằm ngay trong user gesture.
+els.syncBtn.addEventListener("click", () => void toggleScrollSync(syncStatus));
 
 chrome.tabs.onUpdated.addListener((tabId, info) => {
   if (tabId !== activeTabId) return;
+  // Trang tải xong (kể cả tải lại): content script cũ đã mất, kết nối lại đồng bộ cuộn.
+  if (info.status === "complete" && !info.url && state.translation) startScrollSync();
   if (info.title) els.pageTitle.textContent = els.pageTitle.title = info.title;
   // Chỉ tải lại khi sang trang khác (bỏ qua đổi ?query / #hash).
   if (!info.url || (currentTab && pageKey(info.url) === pageKey(currentTab.url))) return;
   loadActiveTab();
 });
-chrome.storage.onChanged.addListener(() => loadActiveTab());
+chrome.storage.onChanged.addListener((changes) => {
+  if ("apiUrl" in changes || "secret" in changes) loadActiveTab();
+  else if ("scrollSync" in changes) startScrollSync();
+});
+// Cấp quyền truy cập trang (nút đồng bộ, hoặc khi bấm "Dịch trang này") thì thử đồng bộ lại.
+chrome.permissions.onAdded.addListener(() => startScrollSync());
 
 loadActiveTab();

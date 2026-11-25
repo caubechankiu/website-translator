@@ -61,6 +61,11 @@ button.icon { padding: 0 6px; background: transparent; border-color: transparent
   text-overflow: ellipsis;
 }
 
+/* Nút đồng bộ cuộn: sáng khi đang đồng bộ, mờ khi không chạy được */
+.sync { color: var(--muted); }
+.sync[data-state="on"] { color: var(--accent); }
+.sync[data-state="idle"], .sync[data-state="few"], .sync[data-state="unavailable"] { opacity: 0.45; }
+
 /* Bản dịch trong side panel: vùng cuộn riêng dưới header */
 .panel .markdown { flex: 1; overflow-y: auto; }
 
