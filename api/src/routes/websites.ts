@@ -51,13 +51,35 @@ websitesRouter.post("/translate", async (req, res) => {
   res.json(toResponse(saved, false));
 });
 
+/**
+ * Các URL thử lần lượt khi tra cứu bản dịch: URL gốc trước, sau đó là biến thể
+ * `.md` / dấu `/` cuối (cùng 1 trang có thể được lưu dưới dạng khác nhau).
+ */
+function lookupCandidates(url: string): string[] {
+  if (url.endsWith(".md")) return [url, url.slice(0, -3)];
+  if (url.endsWith("/")) {
+    const trimmed = url.slice(0, -1);
+    return [url, trimmed, `${trimmed}.md`];
+  }
+  return [url, `${url}.md`];
+}
+
+/** Tìm tuần tự theo `lookupCandidates`, dừng ngay khi thấy. */
+async function findWebsiteWithFallback(url: string): Promise<Website | undefined> {
+  for (const candidate of lookupCandidates(url)) {
+    const website = await findWebsiteByUrl(candidate);
+    if (website) return website;
+  }
+  return undefined;
+}
+
 // GET /api/websites?url=...
 websitesRouter.get("/websites", async (req, res) => {
   const url = UrlSchema.safeParse(req.query.url);
   if (!url.success) {
     return res.status(400).json({ error: "Query `url` không hợp lệ" });
   }
-  const website = await findWebsiteByUrl(url.data);
+  const website = await findWebsiteWithFallback(url.data);
   if (!website) {
     return res.status(404).json({ error: "Trang này chưa được dịch" });
   }
