@@ -84,7 +84,9 @@ export function createScrollSync(container: HTMLElement, onStatus: (status: Sync
       }
     });
     // Trang tải lại / chuyển trang: port đóng. Panel sẽ start lại khi tab tải xong.
+    // Trang vào back/forward cache cũng đóng port, kèm lastError — phải đọc để Chrome không log "Unchecked runtime.lastError".
     port.onDisconnect.addListener(() => {
+      void chrome.runtime.lastError;
       if (current === session) stop({ kind: "connecting" });
     });
     send({ type: "init", ids });

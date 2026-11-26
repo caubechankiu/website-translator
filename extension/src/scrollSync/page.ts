@@ -61,7 +61,10 @@ function connect(port: chrome.runtime.Port) {
       applyPos(view, keys, (id) => elements.get(id), msg.pos);
     }
   });
-  port.onDisconnect.addListener(() => stopWatching?.());
+  port.onDisconnect.addListener(() => {
+    void chrome.runtime.lastError; // đọc để Chrome không log "Unchecked runtime.lastError"
+    stopWatching?.();
+  });
 }
 
 if (!globalThis.__scrollSyncInstalled) {
