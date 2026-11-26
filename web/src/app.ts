@@ -214,6 +214,7 @@ async function load(url: string, title?: string) {
   renderMarkdown(els.output, translation.translatedContent, url, {
     anchors: translation.anchors,
     onNavigate: openPage,
+    proxyImage: (src) => `${__API_URL__}/api/image?${new URLSearchParams({ url: src, token: secret })}`,
   });
   // Lưu theo URL đã chuẩn hoá của API (bỏ ?query/#hash) để cùng một trang không bị lặp.
   history_.add(translation.url, title);

@@ -1,5 +1,5 @@
 import { renderMarkdown as renderInto, scrollToAnchor } from "../../shared/render";
-import { getSavedTranslation, translate, type Translation } from "./api";
+import { imageProxyUrl, getSavedTranslation, translate, type Translation } from "./api";
 import {
   copyMarkdownFromPage,
   extractMarkdownFromDom,
@@ -64,6 +64,7 @@ function renderTranslation(translation: Translation, baseUrl: string) {
     anchors: translation.anchors,
     onNavigate: openInTab,
     onAnchor: scrollTabToAnchor,
+    proxyImage: imageProxyUrl,
   });
 }
 

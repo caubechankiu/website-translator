@@ -240,18 +240,45 @@ export type RenderOptions = {
   onNavigate?: (url: string) => void;
   /** Bấm link "#…" trong bản dịch (ngoài việc cuộn bản dịch), vd. để cuộn cả trang gốc tới mục đó. */
   onAnchor?: (hash: string) => void;
+  /**
+   * URL proxy cho ảnh khi <img> tải trực tiếp bị lỗi (vd. trang gốc gửi `Cross-Origin-Resource-Policy: same-origin`
+   * nên trình duyệt chặn nhúng từ origin khác). Thường là /api/image?url=…&token=… của API.
+   */
+  proxyImage?: (url: string) => string | Promise<string>;
 };
+
+/** Ảnh tải trực tiếp lỗi thì thử lại một lần qua URL proxy. */
+function bindImageFallback(container: HTMLElement, proxyImage?: RenderOptions["proxyImage"]) {
+  if (!proxyImage) return;
+  // Lỗi tải ảnh được báo ở task sau, nên gắn listener ngay sau innerHTML vẫn kịp.
+  for (const img of container.querySelectorAll("img")) {
+    const src = img.src;
+    if (!/^https?:/.test(src)) continue;
+    img.addEventListener(
+      "error",
+      async () => {
+        try {
+          img.src = await proxyImage(src);
+        } catch (err) {
+          console.warn("[proxyImage]", src, err);
+        }
+      },
+      { once: true },
+    );
+  }
+}
 
 /** Render Markdown đã sanitize vào `container`; link và ảnh tương đối tính theo `baseUrl` (trang gốc). */
 export function renderMarkdown(
   container: HTMLElement,
   markdown: string,
   baseUrl: string,
-  { anchors, onNavigate, onAnchor }: RenderOptions = {},
+  { anchors, onNavigate, onAnchor, proxyImage }: RenderOptions = {},
 ) {
   container.innerHTML = DOMPurify.sanitize(marked.parse(markdown, { async: false }));
   container.dataset.baseUrl = baseUrl;
   for (const img of container.querySelectorAll("img")) absolutize(img, "src", baseUrl);
+  bindImageFallback(container, proxyImage);
   assignHeadingIds(container, anchors);
   highlightCode(container);
   addCopyButtons(container);

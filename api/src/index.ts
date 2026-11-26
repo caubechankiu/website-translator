@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import express, { type ErrorRequestHandler, type RequestHandler } from "express";
 import { config } from "./config.js";
+import { imageHandler } from "./routes/image.js";
 import { websitesRouter } from "./routes/websites.js";
 import { TranslationError } from "./translator.js";
 
@@ -23,18 +24,26 @@ const cors: RequestHandler = (req, res, next) => {
   next();
 };
 
-// Xác thực bằng header: Authorization: Bearer <SECRET>
-const requireSecret: RequestHandler = (req, res, next) => {
-  const token = req.header("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
-  const a = Buffer.from(token);
-  const b = Buffer.from(config.SECRET);
-  if (a.length !== b.length || !timingSafeEqual(a, b)) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-  next();
-};
+/**
+ * Xác thực bằng header: Authorization: Bearer <SECRET>.
+ * `allowQueryToken`: chấp nhận thêm `?token=<SECRET>` — chỉ dành cho /api/image vì <img src> không gửi được header.
+ */
+const requireSecret =
+  (allowQueryToken = false): RequestHandler =>
+  (req, res, next) => {
+    const header = req.header("authorization")?.replace(/^Bearer\s+/i, "");
+    const query = allowQueryToken && typeof req.query.token === "string" ? req.query.token : undefined;
+    const a = Buffer.from(header ?? query ?? "");
+    const b = Buffer.from(config.SECRET);
+    if (a.length !== b.length || !timingSafeEqual(a, b)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    next();
+  };
 
-app.use("/api", cors, requireSecret, websitesRouter);
+app.use("/api", cors);
+app.get("/api/image", requireSecret(true), imageHandler);
+app.use("/api", requireSecret(), websitesRouter);
 
 const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   console.error(err);

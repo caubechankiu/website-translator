@@ -62,3 +62,10 @@ export function translate(url: string, content: string, force = false): Promise<
     body: JSON.stringify({ url, content, force }),
   });
 }
+
+/** URL proxy /api/image cho ảnh trang gốc chặn nhúng từ origin khác (SECRET đi qua query vì <img> không gửi được header). */
+export async function imageProxyUrl(url: string): Promise<string> {
+  const { apiUrl, secret } = await getSettings();
+  if (!apiUrl || !secret) throw new ApiError("Chưa cấu hình API URL / SECRET", 0);
+  return `${apiUrl}/api/image?${new URLSearchParams({ url, token: secret })}`;
+}
