@@ -108,10 +108,46 @@ function scrollTabToAnchor(hash: string) {
  * Bấm link tới trang khác cùng site: chuyển tab đang gắn panel sang trang đó.
  * Panel tự tải bản dịch khi tab đổi trang (chrome.tabs.onUpdated), nên trang gốc và bản dịch luôn khớp nhau.
  */
-function openInTab(url: string) {
+async function openInTab(url: string) {
   const tabId = activeTabId ?? currentTab?.id;
-  if (tabId === undefined) return void window.open(url, "_blank", "noopener");
-  chrome.tabs.update(tabId, { url }).catch((err) => setState({ error: (err as Error).message }));
+  const target = await preferPrettyUrl(url);
+  if (tabId === undefined) return void window.open(target, "_blank", "noopener");
+  chrome.tabs.update(tabId, { url: target }).catch((err) => setState({ error: (err as Error).message }));
+}
+
+const MARKDOWN_EXT = /\.mdx?$/i;
+
+/**
+ * Link tới file `.md` / `.mdx`: ưu tiên trang HTML cùng tên (bỏ đuôi), vd. `/docs/quickstart.md` → `/docs/quickstart`.
+ * Chỉ dùng URL đã bỏ đuôi khi nó tồn tại; không có, hoặc không kiểm tra được
+ * (chưa cấp quyền truy cập trang, lỗi mạng…) thì giữ nguyên URL `.md` / `.mdx`.
+ */
+async function preferPrettyUrl(url: string): Promise<string> {
+  let pretty: URL;
+  try {
+    pretty = new URL(url);
+  } catch {
+    return url;
+  }
+  if (!MARKDOWN_EXT.test(pretty.pathname)) return url;
+  pretty.pathname = pretty.pathname.replace(MARKDOWN_EXT, "");
+  return (await urlExists(pretty.href)) ? pretty.href : url;
+}
+
+/** URL trả về 2xx (sau khi theo redirect). Thử HEAD trước, server không hỗ trợ HEAD thì GET. */
+async function urlExists(url: string): Promise<boolean> {
+  const check = async (method: "HEAD" | "GET") => {
+    const res = await fetch(url, { method, redirect: "follow", cache: "no-store", signal: AbortSignal.timeout(5000) });
+    if (method === "GET") void res.body?.cancel();
+    return res;
+  };
+  try {
+    let res = await check("HEAD");
+    if (res.status === 405 || res.status === 501) res = await check("GET");
+    return res.ok;
+  } catch {
+    return false;
+  }
 }
 
 function render() {
