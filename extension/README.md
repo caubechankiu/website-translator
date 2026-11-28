@@ -21,6 +21,6 @@ Lần đầu: mở **Cài đặt** (nút ⚙ trong side panel), nhập API URL (
    1. Tự bấm nút **Copy page** / **Copy Markdown** của trang (`src/pageCopy.ts`).
    2. Clipboard, nếu người dùng vừa tự copy Markdown.
    3. Tự chuyển HTML của trang sang Markdown bằng Turndown (`src/extract/`). Mỗi framework có một adapter
-      (Starlight/Astro, Docusaurus, VitePress, MkDocs Material) biết vùng nội dung, phần giao diện cần bỏ và cách
+      (Starlight/Astro, Docusaurus, VitePress, MkDocs Material, TypeDoc) biết vùng nội dung, phần giao diện cần bỏ và cách
       chuyển code block, callout, tabs. Trang khác dùng adapter `generic`. Muốn hỗ trợ framework mới thì thêm
       adapter vào `ADAPTERS` trong `src/extract/adapters.ts` (đặt trước `generic`).

@@ -148,6 +148,61 @@ const mkdocsMaterial: Adapter = {
   },
 };
 
+/** TypeDoc (default theme) — vd. typedoc.org, trang API sinh từ TypeScript. */
+const typedoc: Adapter = {
+  name: "typedoc",
+  detect: (doc) => generator(doc, "TypeDoc") || !!doc.querySelector(".col-content > .tsd-page-title, .tsd-generator"),
+  root: [".col-content"],
+  // Trang "document" (Markdown) không có h1 — tên trang là mục cuối của breadcrumb.
+  title: (doc) =>
+    text(doc.querySelector(".tsd-page-title h1")) ||
+    text(doc.querySelector(".tsd-breadcrumb [aria-current='page']")) ||
+    undefined,
+  remove: [
+    ".tsd-breadcrumb",
+    ".tsd-anchor-icon",
+    ".tsd-sources", // "Defined in src/…:123" — không cần dịch
+    ".tsd-index-group", // mục lục thành viên, trùng với nội dung bên dưới
+    "pre > button",
+  ],
+  normalize(root) {
+    const doc = root.ownerDocument;
+    // Code block: xuống dòng bằng <br>, ngôn ngữ nằm trực tiếp trong class ("ts", "bash"…).
+    for (const pre of root.querySelectorAll("pre")) {
+      const code = pre.querySelector("code");
+      if (!code) continue;
+      for (const br of code.querySelectorAll("br")) br.replaceWith("\n");
+      const lang = languageOf(code) || (/^[\w+#.-]+$/.test(code.className.trim()) ? code.className.trim() : "");
+      pre.replaceWith(makeCodeBlock(doc, codeText(pre), lang));
+    }
+    // Chữ ký hàm / kiểu: chuỗi span tô màu -> code block TypeScript.
+    for (const sig of root.querySelectorAll(".tsd-signature")) {
+      sig.replaceWith(makeCodeBlock(doc, text(sig), "ts"));
+    }
+    // Overload nằm trong ul.tsd-signatures > li — bỏ lớp list để không bị thụt lề.
+    for (const list of root.querySelectorAll("ul.tsd-signatures")) {
+      const frag = doc.createDocumentFragment();
+      for (const li of list.querySelectorAll(":scope > li")) frag.append(...li.childNodes);
+      list.replaceWith(frag);
+    }
+    // Nhãn như "Internal", "Optional" đứng sát tên thành viên — thêm khoảng trắng.
+    for (const tag of root.querySelectorAll("h3 > code.tsd-tag")) tag.after(" ");
+    for (const alert of root.querySelectorAll(".tsd-alert")) {
+      const titleEl = alert.querySelector(":scope > .tsd-alert-title");
+      const title = text(titleEl);
+      titleEl?.remove();
+      alert.replaceWith(makeCallout(doc, title, alert));
+    }
+    // Nhóm thành viên là <details><summary><h2>…</h2></summary>: giữ heading, bỏ accordion.
+    for (const details of [...root.querySelectorAll("details.tsd-accordion")].reverse()) {
+      const summary = details.querySelector(":scope > summary");
+      const heading = summary?.querySelector("h1, h2, h3, h4, h5, h6");
+      if (summary) summary.replaceWith(...(heading ? [heading] : []));
+      details.replaceWith(...details.childNodes);
+    }
+  },
+};
+
 /** Trang bất kỳ: lấy vùng nội dung dài nhất trong article/main, bỏ điều hướng. */
 const generic: Adapter = {
   name: "generic",
@@ -169,4 +224,4 @@ const generic: Adapter = {
   ],
 };
 
-export const ADAPTERS: Adapter[] = [starlight, docusaurus, vitepress, mkdocsMaterial, generic];
+export const ADAPTERS: Adapter[] = [starlight, docusaurus, vitepress, mkdocsMaterial, typedoc, generic];
